@@ -1,0 +1,9 @@
+# Dependencies & OS files
+.DS_Store
+Thumbs.db
+node_modules/
+*.log
+
+# Private Documents & Notes
+*.docx
+*viva_notes*

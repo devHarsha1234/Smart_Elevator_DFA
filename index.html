@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Elevator — Finite Automata &amp; Formal Languages (ISE Project)</title>
+  <meta name="description" content="Deterministic Finite Automaton (DFA) based Smart Elevator simulation for Finite Automata &amp; Formal Languages — In Semester Evaluation (ISE).">
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Font Awesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+
+  <!-- ====================================================
+       PRESENTATION THEATER DOCKED COCKPIT (Visible in Presentation Mode)
+       ==================================================== -->
+  <div id="presentationHeaderBar" class="presentation-header-bar">
+    <div class="pres-brand">
+      <div class="brand-icon pres-brand-icon">
+        <i class="fa-solid fa-elevator"></i>
+      </div>
+      <div>
+        <div class="pres-title">SMART ELEVATOR</div>
+        <span class="badge-fafl"><i class="fa-solid fa-chalkboard-user"></i> Theater Presentation Mode</span>
+      </div>
+    </div>
+
+    <!-- Live Transition HUD in Presentation Header -->
+    <div class="pres-hud-strip">
+      <div class="pres-hud-chip">
+        <span class="pres-chip-lbl">CURRENT STATE:</span>
+        <span class="pres-chip-val highlight-cyan font-mono" id="presTopState">q(F1, C, IDLE, ∅, N)</span>
+      </div>
+      <div class="pres-hud-arrow">
+        <span class="pres-chip-symbol font-mono" id="presTopInput">T</span>
+        <i class="fa-solid fa-arrow-right"></i>
+      </div>
+      <div class="pres-hud-chip">
+        <span class="pres-chip-lbl">NEXT STATE:</span>
+        <span class="pres-chip-val highlight-blue font-mono" id="presTopNext">q(F1, C, IDLE, ∅, N)</span>
+      </div>
+      <div class="pres-hud-formula font-mono" id="presTopFormula">
+        δ(q, σ) = q'
+      </div>
+    </div>
+
+    <!-- Quick Actions in Presentation Header -->
+    <div class="pres-header-actions">
+      <button class="btn-header btn-pres-demo" onclick="window.elevatorApp.runScenario('multi-request')">
+        <i class="fa-solid fa-layer-group"></i> Multi-Request Demo
+      </button>
+      <button class="btn-header btn-pres-demo demo-emergency" onclick="window.elevatorApp.runScenario('emergency-transit')">
+        <i class="fa-solid fa-triangle-exclamation"></i> Emergency Demo
+      </button>
+      <button class="btn-header btn-reset" onclick="window.elevatorApp.resetSimulator()">
+        <i class="fa-solid fa-rotate-left"></i> Reset
+      </button>
+      <button id="exitPresentationBtn" class="btn-header btn-exit-pres" onclick="window.elevatorApp.togglePresentationMode()">
+        <i class="fa-solid fa-xmark"></i> Exit Presentation (Esc)
+      </button>
+    </div>
+  </div>
+
+  <!-- ====================================================
+       TOP NAVIGATION BAR & HEADER (Standard Mode)
+       ==================================================== -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-section">
+        <div class="brand-icon">
+          <i class="fa-solid fa-elevator"></i>
+        </div>
+        <div class="brand-text">
+          <div class="brand-title-row">
+            <h1 class="brand-title">SMART ELEVATOR</h1>
+          </div>
+          <p class="brand-subtitle">Real-Time Collective Control Finite Automaton M = (Q, Σ, δ, q0, F)</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button id="soundToggleBtn" class="btn-icon" title="Toggle Sound Effects" aria-label="Toggle Sound">
+          <i class="fa-solid fa-volume-high" id="soundIcon"></i>
+          <span class="action-label" id="soundLabel">Sound: ON</span>
+        </button>
+        <button id="presentationModeBtn" class="btn-header btn-presentation" title="Toggle Classroom Presentation Mode">
+          <i class="fa-solid fa-chalkboard-user"></i>
+          <span>Presentation Mode</span>
+        </button>
+        <button id="resetSimulatorBtn" class="btn-header btn-reset" title="Reset DFA &amp; Elevator to Initial State q0">
+          <i class="fa-solid fa-rotate-left"></i>
+          <span>Reset System</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Statistics Strip -->
+    <div class="stats-strip">
+      <div class="stat-item">
+        <span class="stat-label"><i class="fa-solid fa-flag-checkered"></i> START:</span>
+        <span class="stat-value start-badge" id="stripStartState">q0(1, C, IDLE)</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label"><i class="fa-solid fa-circle-nodes"></i> STATES:</span>
+        <span class="stat-value highlight-cyan" id="stripTotalStates">5,000+</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label"><i class="fa-solid fa-fingerprint"></i> CURRENT DFA:</span>
+        <span class="stat-value state-badge" id="stripCurrentState">q(1, CLOSED, IDLE)</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label"><i class="fa-solid fa-building"></i> FLOOR:</span>
+        <span class="stat-value" id="stripCurrentFloor">Floor 1</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label"><i class="fa-solid fa-door-closed"></i> DOOR:</span>
+        <span class="stat-value" id="stripDoorStatus">CLOSED</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label"><i class="fa-solid fa-arrows-up-down"></i> DIR:</span>
+        <span class="stat-value" id="stripDirection">IDLE (•)</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label"><i class="fa-solid fa-shield-halved"></i> MODE:</span>
+        <span class="stat-value mode-badge" id="stripSimulationMode">NORMAL</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ====================================================
+       MAIN APPLICATION LAYOUT
+       ==================================================== -->
+  <main class="main-container">
+
+    <!-- Emergency Global Alert Banner -->
+    <div id="emergencyAlertBanner" class="alert-banner emergency-banner hidden">
+      <div class="alert-content">
+        <i class="fa-solid fa-radiation alert-icon pulse-icon"></i>
+        <div class="alert-text">
+          <strong class="alert-title">EMERGENCY MODE ACTIVATED (q_EMERGENCY)</strong>
+          <span id="emergencyBannerDesc" class="alert-desc">Safety brake engaged at current floor. All pending requests are preserved.</span>
+        </div>
+      </div>
+      <button class="btn-banner-reset btn-emergency-reset" onclick="window.elevatorApp.sendInput('R')">
+        <i class="fa-solid fa-life-ring"></i> Reset Emergency (Input R)
+      </button>
+    </div>
+
+    <!-- PRIMARY 2-COLUMN DISPLAY (ELEVATOR BUILDING & DFA VISUALIZER) -->
+    <div class="primary-grid">
+
+      <!-- ====================================================
+           COLUMN 1: ANIMATED ELEVATOR BUILDING
+           ==================================================== -->
+      <section class="card glass-card elevator-section" id="elevatorCard">
+        <div class="card-header">
+          <div class="card-title-group">
+            <i class="fa-solid fa-building-user header-icon"></i>
+            <div>
+              <h2 class="card-title">Elevator Building</h2>
+              <span class="card-subtitle">4-Floor Model with Independent Hall Call Panels</span>
+            </div>
+          </div>
+          <div class="elevator-status-pill" id="cabinStatusPill">
+            <span class="status-dot"></span>
+            <span id="cabinStatusText">IDLE AT FLOOR 1</span>
+          </div>
+        </div>
+
+        <div class="card-body elevator-view-body">
+          <div class="building-outer">
+            <!-- Roof / Machinery Room -->
+            <div class="building-roof">
+              <div class="machinery-box">
+                <i class="fa-solid fa-gears motor-icon" id="motorGear"></i>
+                <span class="machinery-label">HOIST MOTOR &amp; COLLECTIVE DFA ENGINE</span>
+              </div>
+            </div>
+
+            <!-- 4-Floor Shaft & Building Structure -->
+            <div class="building-shaft-wrapper" id="shaftWrapper">
+              
+              <!-- Floor Background & Landings (Floors 4 down to 1) -->
+              <div class="floors-container">
+                <!-- Floor 4 -->
+                <div class="floor-level" id="floorLevel4" data-floor="4">
+                  <div class="floor-sign">
+                    <span class="floor-num">4</span>
+                    <span class="floor-name">FLOOR 4</span>
+                  </div>
+                  <div class="floor-landing">
+                    <div class="hall-call-panel">
+                      <!-- Floor 4 has no UP call (Disabled) -->
+                      <button class="hall-call-btn up disabled" disabled title="Floor 4 is the top floor — No UP call available"><i class="fa-solid fa-caret-up"></i></button>
+                      <button class="hall-call-btn down" id="hallBtn4Down" title="Hall Call: Floor 4 DOWN (Input: REQ_HALL_4_DOWN)" onclick="window.elevatorApp.sendInput('REQ_HALL_4_DOWN')">
+                        <i class="fa-solid fa-caret-down"></i>
+                        <span class="hall-btn-tag" id="hallTag4Down"></span>
+                      </button>
+                    </div>
+                    <!-- External Wall Hall Lantern Display -->
+                    <div class="landing-lantern-box" id="landingInd4">
+                      <div class="lantern-dir" id="lanternDir4"><i class="fa-solid fa-circle"></i> IDLE</div>
+                      <div class="lantern-status" id="lanternStatus4">Car @ F1</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Floor 3 -->
+                <div class="floor-level" id="floorLevel3" data-floor="3">
+                  <div class="floor-sign">
+                    <span class="floor-num">3</span>
+                    <span class="floor-name">FLOOR 3</span>
+                  </div>
+                  <div class="floor-landing">
+                    <div class="hall-call-panel">
+                      <button class="hall-call-btn up" id="hallBtn3Up" title="Hall Call: Floor 3 UP (Input: REQ_HALL_3_UP)" onclick="window.elevatorApp.sendInput('REQ_HALL_3_UP')">
+                        <i class="fa-solid fa-caret-up"></i>
+                        <span class="hall-btn-tag" id="hallTag3Up"></span>
+                      </button>
+                      <button class="hall-call-btn down" id="hallBtn3Down" title="Hall Call: Floor 3 DOWN (Input: REQ_HALL_3_DOWN)" onclick="window.elevatorApp.sendInput('REQ_HALL_3_DOWN')">
+                        <i class="fa-solid fa-caret-down"></i>
+                        <span class="hall-btn-tag" id="hallTag3Down"></span>
+                      </button>
+                    </div>
+                    <!-- External Wall Hall Lantern Display -->
+                    <div class="landing-lantern-box" id="landingInd3">
+                      <div class="lantern-dir" id="lanternDir3"><i class="fa-solid fa-circle"></i> IDLE</div>
+                      <div class="lantern-status" id="lanternStatus3">Car @ F1</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Floor 2 -->
+                <div class="floor-level" id="floorLevel2" data-floor="2">
+                  <div class="floor-sign">
+                    <span class="floor-num">2</span>
+                    <span class="floor-name">FLOOR 2</span>
+                  </div>
+                  <div class="floor-landing">
+                    <div class="hall-call-panel">
+                      <button class="hall-call-btn up" id="hallBtn2Up" title="Hall Call: Floor 2 UP (Input: REQ_HALL_2_UP)" onclick="window.elevatorApp.sendInput('REQ_HALL_2_UP')">
+                        <i class="fa-solid fa-caret-up"></i>
+                        <span class="hall-btn-tag" id="hallTag2Up"></span>
+                      </button>
+                      <button class="hall-call-btn down" id="hallBtn2Down" title="Hall Call: Floor 2 DOWN (Input: REQ_HALL_2_DOWN)" onclick="window.elevatorApp.sendInput('REQ_HALL_2_DOWN')">
+                        <i class="fa-solid fa-caret-down"></i>
+                        <span class="hall-btn-tag" id="hallTag2Down"></span>
+                      </button>
+                    </div>
+                    <!-- External Wall Hall Lantern Display -->
+                    <div class="landing-lantern-box" id="landingInd2">
+                      <div class="lantern-dir" id="lanternDir2"><i class="fa-solid fa-circle"></i> IDLE</div>
+                      <div class="lantern-status" id="lanternStatus2">Car @ F1</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Floor 1 -->
+                <div class="floor-level" id="floorLevel1" data-floor="1">
+                  <div class="floor-sign">
+                    <span class="floor-num">1</span>
+                    <span class="floor-name">FLOOR 1 (LOBBY)</span>
+                  </div>
+                  <div class="floor-landing">
+                    <div class="hall-call-panel">
+                      <button class="hall-call-btn up" id="hallBtn1Up" title="Hall Call: Floor 1 UP (Input: REQ_HALL_1_UP)" onclick="window.elevatorApp.sendInput('REQ_HALL_1_UP')">
+                        <i class="fa-solid fa-caret-up"></i>
+                        <span class="hall-btn-tag" id="hallTag1Up"></span>
+                      </button>
+                      <!-- Floor 1 has no DOWN call (Disabled) -->
+                      <button class="hall-call-btn down disabled" disabled title="Floor 1 is the bottom floor — No DOWN call available"><i class="fa-solid fa-caret-down"></i></button>
+                    </div>
+                    <!-- External Wall Hall Lantern Display -->
+                    <div class="landing-lantern-box active-landing" id="landingInd1">
+                      <div class="lantern-dir" id="lanternDir1"><i class="fa-solid fa-elevator"></i> HERE</div>
+                      <div class="lantern-status" id="lanternStatus1">Floor 1</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hoist Cable -->
+              <div class="hoist-cable" id="hoistCable"></div>
+
+              <!-- Moving Elevator Cabin -->
+              <div class="elevator-cabin" id="elevatorCabin" style="bottom: 8px;">
+                <!-- Overhead LED Floor Indicator & Arrow -->
+                <div class="cabin-display-panel">
+                  <div class="cabin-dir-arrow" id="cabinDirArrow">
+                    <i class="fa-solid fa-minus"></i>
+                  </div>
+                  <div class="cabin-floor-digit" id="cabinFloorDigit">1</div>
+                  <div class="cabin-state-pill" id="cabinStateTag">q(1,C,IDLE)</div>
+                </div>
+
+                <!-- Cabin Interior & Sliding Doors -->
+                <div class="cabin-interior" id="cabinInterior">
+                  <!-- Interior Light & Back Wall -->
+                  <div class="cabin-light"></div>
+                  <div class="cabin-backwall">
+                    <div class="backwall-mirror"></div>
+                    <div class="cabin-inner-cop" id="cabinCopPanel">
+                      <!-- Floor Destination Buttons -->
+                      <button class="cop-btn" id="copBtn3" title="Cabin Destination: Floor 3 (Input: REQ_CABIN_3)" onclick="window.elevatorApp.sendInput('REQ_CABIN_3')">3</button>
+                      <button class="cop-btn" id="copBtn4" title="Cabin Destination: Floor 4 (Input: REQ_CABIN_4)" onclick="window.elevatorApp.sendInput('REQ_CABIN_4')">4</button>
+                      <button class="cop-btn" id="copBtn1" title="Cabin Destination: Floor 1 (Input: REQ_CABIN_1)" onclick="window.elevatorApp.sendInput('REQ_CABIN_1')">1</button>
+                      <button class="cop-btn" id="copBtn2" title="Cabin Destination: Floor 2 (Input: REQ_CABIN_2)" onclick="window.elevatorApp.sendInput('REQ_CABIN_2')">2</button>
+                      <!-- Door Open / Close Controls -->
+                      <button class="cop-btn cop-btn-door" id="copBtnOpen" title="Passenger Door Open (Input: O)" onclick="window.elevatorApp.sendInput('O')"><i class="fa-solid fa-arrows-left-right-to-line"></i></button>
+                      <button class="cop-btn cop-btn-door" id="copBtnClose" title="Passenger Door Close (Input: C)" onclick="window.elevatorApp.sendInput('C')"><i class="fa-solid fa-arrows-to-line"></i></button>
+                      <!-- In-Cabin Emergency Stop Alarm Button -->
+                      <button class="cop-btn cop-btn-emerg" id="copBtnEmerg" title="In-Cabin Emergency Alarm / Stop (Input: E)" onclick="window.elevatorApp.sendInput('E')">
+                        <i class="fa-solid fa-triangle-exclamation"></i> STOP
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Sliding Doors (Left & Right) -->
+                  <div class="door-panel door-left" id="doorLeft">
+                    <div class="door-glass"></div>
+                    <div class="door-edge"></div>
+                  </div>
+                  <div class="door-panel door-right" id="doorRight">
+                    <div class="door-glass"></div>
+                    <div class="door-edge"></div>
+                  </div>
+                </div>
+
+                <!-- Cabin Under-Chassis Buffer -->
+                <div class="cabin-chassis"></div>
+              </div>
+
+            </div>
+
+            <!-- Building Foundation / Pit -->
+            <div class="building-foundation">
+              <span>FOUNDATION BUFFER &amp; HYDRAULIC TENSION SYSTEM</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================
+           COLUMN 2: INTERACTIVE DFA GRAPH VISUALIZER & EXPLORER
+           ==================================================== -->
+      <section class="card glass-card dfa-visualizer-section" id="dfaCard">
+        <div class="card-header">
+          <div class="card-title-group">
+            <i class="fa-solid fa-diagram-project header-icon"></i>
+            <div>
+              <h2 class="card-title">DFA State Space &amp; Transition Explorer</h2>
+              <span class="card-subtitle">Formal Composite State Representation q = (Floor, Door, Dir, Reqs, Mode)</span>
+            </div>
+          </div>
+          <div class="dfa-legend">
+            <span class="legend-item"><span class="legend-dot dot-start"></span> Start State (q0)</span>
+            <span class="legend-item"><span class="legend-dot dot-closed"></span> Closed</span>
+            <span class="legend-item"><span class="legend-dot dot-open"></span> Open</span>
+            <span class="legend-item"><span class="legend-dot dot-current"></span> Active Configuration</span>
+            <span class="legend-item"><span class="legend-dot dot-emergency"></span> Emergency (qE)</span>
+          </div>
+        </div>
+
+        <!-- Interactive Transition Filter Pill Bar -->
+        <div class="dfa-filter-bar">
+          <span class="filter-label"><i class="fa-solid fa-filter"></i> State Focus:</span>
+          <div class="filter-buttons">
+            <button class="filter-btn active" data-filter="all" onclick="window.elevatorApp.setArrowFilter('all')">All Transitions</button>
+            <button class="filter-btn" data-filter="active-state" onclick="window.elevatorApp.setArrowFilter('active-state')">Active Node (5)</button>
+            <button class="filter-btn filter-up" data-filter="U" onclick="window.elevatorApp.setArrowFilter('U')">↑ Move Up (U)</button>
+            <button class="filter-btn filter-down" data-filter="D" onclick="window.elevatorApp.setArrowFilter('D')">↓ Move Down (D)</button>
+            <button class="filter-btn filter-doors" data-filter="doors" onclick="window.elevatorApp.setArrowFilter('doors')">↔ Doors (O/C)</button>
+            <button class="filter-btn filter-safety" data-filter="safety" onclick="window.elevatorApp.setArrowFilter('safety')">🚨 Emergency Mode</button>
+          </div>
+        </div>
+
+        <div class="card-body dfa-graph-body">
+          <div class="svg-container" id="svgContainer">
+            <!-- Dynamic Interactive SVG Canvas -->
+            <svg id="dfaSvg" class="dfa-svg" viewBox="0 0 760 520" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <!-- SVG Arrow Marker Definitions -->
+                <marker id="arrow-default" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#64748b" />
+                </marker>
+                <marker id="arrow-active" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 1 L 9 5 L 0 9 z" fill="#38bdf8" />
+                </marker>
+                <marker id="arrow-up" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38bdf8" />
+                </marker>
+                <marker id="arrow-down" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#3b82f6" />
+                </marker>
+                <marker id="arrow-open" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#34d399" />
+                </marker>
+                <marker id="arrow-close" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#c084fc" />
+                </marker>
+                <marker id="arrow-trap" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 1 L 9 5 L 0 9 z" fill="#f97316" />
+                </marker>
+                <marker id="arrow-emergency" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 1 L 9 5 L 0 9 z" fill="#ef4444" />
+                </marker>
+
+                <!-- Glow Filters -->
+                <filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="4" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+                <filter id="glow-red" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="6" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+              </defs>
+
+              <!-- Dynamic SVG Paths & Transitions Layer -->
+              <g id="svgTransitionsGroup"></g>
+
+              <!-- Dynamic SVG Labels / Badges on Arrows -->
+              <g id="svgLabelsGroup"></g>
+
+              <!-- Dynamic Pulse Particle Layer -->
+              <g id="svgParticleGroup"></g>
+
+              <!-- Dynamic SVG Nodes Layer -->
+              <g id="svgNodesGroup"></g>
+            </svg>
+
+            <!-- Floating Tooltip Box for Arrows and Nodes -->
+            <div id="dfaFloatingTooltip" class="dfa-floating-tooltip hidden">
+              <div class="tooltip-header" id="tooltipHeader">Transition Info</div>
+              <div class="tooltip-body" id="tooltipBody">Transition description</div>
+              <div class="tooltip-formula font-mono" id="tooltipFormula">δ(q, σ) = q'</div>
+            </div>
+          </div>
+
+          <!-- Outgoing Transitions Radar -->
+          <div class="outgoing-radar-card">
+            <div class="radar-header">
+              <span class="radar-title"><i class="fa-solid fa-compass"></i> OUTGOING TRANSITIONS FROM <strong class="highlight-cyan font-mono" id="radarActiveState">q0</strong>:</span>
+              <span class="radar-hint">Click any card to feed symbol into δ(q, σ)</span>
+            </div>
+            <div class="radar-cards-grid" id="radarCardsGrid">
+              <!-- Rendered dynamically for 5 transitions (U, D, O, C, E) -->
+            </div>
+          </div>
+
+          <!-- Active Transition HUD Overlay -->
+          <div class="transition-hud" id="transitionHud">
+            <div class="hud-item">
+              <span class="hud-label">PREVIOUS STATE:</span>
+              <span class="hud-value font-mono" id="hudPrevState">q(1, CLOSED, IDLE)</span>
+            </div>
+            <div class="hud-arrow-box">
+              <span class="hud-symbol-badge" id="hudInputSymbol">T</span>
+              <i class="fa-solid fa-arrow-right hud-icon"></i>
+            </div>
+            <div class="hud-item">
+              <span class="hud-label">CURRENT CONFIGURATION:</span>
+              <span class="hud-value highlight-cyan font-mono" id="hudNextState">q(1, CLOSED, IDLE, ∅, NORMAL)</span>
+            </div>
+            <div class="hud-item delta-item">
+              <span class="hud-label">FORMAL NOTATION:</span>
+              <span class="hud-value font-mono" id="hudDeltaFormula">δ(q, T) = q'</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ====================================================
+         PRESENTATION THEATER BOTTOM CONTROLS BAR (Visible in Presentation Mode)
+         ==================================================== -->
+    <div id="presentationControlsBar" class="presentation-bottom-bar">
+      <!-- Direct DFA Alphabet Buttons -->
+      <div class="pres-input-deck">
+        <span class="pres-deck-label"><i class="fa-solid fa-gamepad"></i> INPUT SYMBOL Σ:</span>
+        <div class="pres-btn-group">
+          <button class="dfa-input-btn btn-up pres-dfa-btn" onclick="window.elevatorApp.sendInput('U')">
+            <span class="btn-symbol">U</span>
+            <span class="btn-name">UP</span>
+          </button>
+          <button class="dfa-input-btn btn-down pres-dfa-btn" onclick="window.elevatorApp.sendInput('D')">
+            <span class="btn-symbol">D</span>
+            <span class="btn-name">DOWN</span>
+          </button>
+          <button class="dfa-input-btn btn-open pres-dfa-btn" onclick="window.elevatorApp.sendInput('O')">
+            <span class="btn-symbol">O</span>
+            <span class="btn-name">OPEN</span>
+          </button>
+          <button class="dfa-input-btn btn-close pres-dfa-btn" onclick="window.elevatorApp.sendInput('C')">
+            <span class="btn-symbol">C</span>
+            <span class="btn-name">CLOSE</span>
+          </button>
+          <button class="dfa-input-btn btn-emergency pres-dfa-btn" onclick="window.elevatorApp.sendInput('E')">
+            <span class="btn-symbol">E</span>
+            <span class="btn-name">EMERGENCY</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Destination Floor Quick Picks -->
+      <div class="pres-dest-deck">
+        <span class="pres-deck-label"><i class="fa-solid fa-route"></i> CABIN CALL:</span>
+        <div class="pres-btn-group">
+          <button class="pres-dest-btn" onclick="window.elevatorApp.sendInput('REQ_CABIN_1')">FL 1</button>
+          <button class="pres-dest-btn" onclick="window.elevatorApp.sendInput('REQ_CABIN_2')">FL 2</button>
+          <button class="pres-dest-btn" onclick="window.elevatorApp.sendInput('REQ_CABIN_3')">FL 3</button>
+          <button class="pres-dest-btn" onclick="window.elevatorApp.sendInput('REQ_CABIN_4')">FL 4</button>
+        </div>
+      </div>
+
+      <!-- Live Dynamic Explanation Display -->
+      <div class="pres-explanation-deck">
+        <span class="pres-deck-label"><i class="fa-solid fa-graduation-cap"></i> AUTOMATA EXPLANATION:</span>
+        <p class="pres-explanation-text" id="presBottomExplanation">
+          System initialized at initial state q0 = (Floor 1, Door Closed, IDLE, ∅, NORMAL).
+        </p>
+      </div>
+    </div>
+
+    <!-- ====================================================
+         CONTROL DECK & COLLECTIVE SCHEDULING (Standard Mode)
+         ==================================================== -->
+    <div class="controls-grid standard-section">
+
+      <!-- Card 1: Direct DFA Alphabet & Manual Inputs (Σ) -->
+      <section class="card glass-card control-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <i class="fa-solid fa-gamepad header-icon"></i>
+            <div>
+              <h3 class="card-title">Direct Alphabet &amp; Manual Control (Σ)</h3>
+              <span class="card-subtitle">Discrete Manual DFA Inputs δ(q, σ) with Boundary Self-Loops</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="input-buttons-row">
+            <button id="btnInputU" class="dfa-input-btn btn-up" data-symbol="U" title="Manual Step Up (Input: U) [Hotkey: U / UpArrow]" onclick="window.elevatorApp.sendInput('U')">
+              <div class="btn-icon-box"><i class="fa-solid fa-arrow-up"></i></div>
+              <div class="btn-text-box">
+                <span class="btn-symbol">U</span>
+                <span class="btn-name">MOVE UP</span>
+              </div>
+              <span class="hotkey-badge">U / ↑</span>
+            </button>
+
+            <button id="btnInputD" class="dfa-input-btn btn-down" data-symbol="D" title="Manual Step Down (Input: D) [Hotkey: D / DownArrow]" onclick="window.elevatorApp.sendInput('D')">
+              <div class="btn-icon-box"><i class="fa-solid fa-arrow-down"></i></div>
+              <div class="btn-text-box">
+                <span class="btn-symbol">D</span>
+                <span class="btn-name">MOVE DOWN</span>
+              </div>
+              <span class="hotkey-badge">D / ↓</span>
+            </button>
+
+            <button id="btnInputO" class="dfa-input-btn btn-open" data-symbol="O" title="Open Door (Input: O) [Hotkey: O]" onclick="window.elevatorApp.sendInput('O')">
+              <div class="btn-icon-box"><i class="fa-solid fa-door-open"></i></div>
+              <div class="btn-text-box">
+                <span class="btn-symbol">O</span>
+                <span class="btn-name">OPEN DOOR</span>
+              </div>
+              <span class="hotkey-badge">O</span>
+            </button>
+
+            <button id="btnInputC" class="dfa-input-btn btn-close" data-symbol="C" title="Close Door (Input: C) [Hotkey: C]" onclick="window.elevatorApp.sendInput('C')">
+              <div class="btn-icon-box"><i class="fa-solid fa-door-closed"></i></div>
+              <div class="btn-text-box">
+                <span class="btn-symbol">C</span>
+                <span class="btn-name">CLOSE DOOR</span>
+              </div>
+              <span class="hotkey-badge">C</span>
+            </button>
+
+            <button id="btnInputE" class="dfa-input-btn btn-emergency" data-symbol="E" title="Emergency Brake (Input: E) [Hotkey: E / Esc]" onclick="window.elevatorApp.sendInput('E')">
+              <div class="btn-icon-box"><i class="fa-solid fa-triangle-exclamation"></i></div>
+              <div class="btn-text-box">
+                <span class="btn-symbol">E</span>
+                <span class="btn-name">EMERGENCY</span>
+              </div>
+              <span class="hotkey-badge">E / Esc</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 2: Collective Request Dispatcher & Route Planner -->
+      <section class="card glass-card control-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <i class="fa-solid fa-route header-icon"></i>
+            <div>
+              <h3 class="card-title">Collective Request Scheduler &amp; Route</h3>
+              <span class="card-subtitle">Real-Time Multi-Request Coexistence &amp; Deterministic SCAN Policy</span>
+            </div>
+          </div>
+          <div class="sim-speed-control">
+            <label for="simSpeedSelect" class="speed-label"><i class="fa-solid fa-gauge-high"></i> Speed:</label>
+            <select id="simSpeedSelect" class="speed-select">
+              <option value="1600">0.75x (Slow)</option>
+              <option value="1000" selected>1.0x (Normal)</option>
+              <option value="600">1.75x (Fast)</option>
+              <option value="step">Step-by-Step</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <!-- Cabin Call Fast Dispatch Row -->
+          <div class="dest-buttons-row">
+            <button class="dest-btn" id="destBtn1" onclick="window.elevatorApp.sendInput('REQ_CABIN_1')">
+              <span class="dest-floor-num">1</span>
+              <span class="dest-label">CABIN F1</span>
+            </button>
+            <button class="dest-btn" id="destBtn2" onclick="window.elevatorApp.sendInput('REQ_CABIN_2')">
+              <span class="dest-floor-num">2</span>
+              <span class="dest-label">CABIN F2</span>
+            </button>
+            <button class="dest-btn" id="destBtn3" onclick="window.elevatorApp.sendInput('REQ_CABIN_3')">
+              <span class="dest-floor-num">3</span>
+              <span class="dest-label">CABIN F3</span>
+            </button>
+            <button class="dest-btn" id="destBtn4" onclick="window.elevatorApp.sendInput('REQ_CABIN_4')">
+              <span class="dest-floor-num">4</span>
+              <span class="dest-label">CABIN F4</span>
+            </button>
+          </div>
+
+          <!-- Pending Requests Queue & Planned Route Card -->
+          <div class="requests-queue-container">
+            <div class="queue-row">
+              <span class="queue-header-lbl"><i class="fa-solid fa-list-check"></i> PENDING REQUESTS:</span>
+              <div class="active-requests-chips" id="activeRequestsChips">
+                <span class="no-requests-hint">No active pending requests (Elevator Idle)</span>
+              </div>
+            </div>
+
+            <div class="route-planner-box">
+              <div class="route-col">
+                <span class="route-sub-lbl">CURRENT:</span>
+                <strong class="route-val highlight-cyan font-mono" id="routeCurrentFloor">Floor 1</strong>
+              </div>
+              <div class="route-col">
+                <span class="route-sub-lbl">DIRECTION:</span>
+                <strong class="route-val font-mono" id="routeDirection">IDLE (•)</strong>
+              </div>
+              <div class="route-col">
+                <span class="route-sub-lbl">NEXT STOP:</span>
+                <strong class="route-val highlight-blue font-mono" id="routeNextStop">None</strong>
+              </div>
+              <div class="route-col route-path-col">
+                <span class="route-sub-lbl">PLANNED ROUTE (SCAN):</span>
+                <strong class="route-path-val font-mono" id="routePlannedPath">Idle at Floor 1</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Simulation Step Playback Bar -->
+          <div class="sim-playback-row">
+            <button id="btnSimTick" class="btn-sim-action" onclick="window.elevatorApp.stepTick()" title="Trigger discrete clock event T in DFA">
+              <i class="fa-solid fa-forward-step"></i> Step Tick (T)
+            </button>
+            <button id="btnPauseResumeSim" class="btn-sim-action btn-sim-toggle" onclick="window.elevatorApp.toggleAutoTick()">
+              <i class="fa-solid fa-pause" id="simPlayPauseIcon"></i> <span id="simPlayPauseText">Auto-Tick: ON</span>
+            </button>
+            <button id="btnClearRequests" class="btn-sim-action" onclick="window.elevatorApp.clearAllRequests()">
+              <i class="fa-solid fa-broom"></i> Clear Requests
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ====================================================
+         PRESET EDUCATIONAL SCENARIOS BAR (Standard Mode)
+         ==================================================== -->
+    <section class="card glass-card demo-section standard-section">
+      <div class="demo-header">
+        <span class="demo-title"><i class="fa-solid fa-flask-vial"></i> Viva &amp; Classroom Demonstration Scenarios:</span>
+      </div>
+      <div class="demo-buttons-flex">
+        <button class="btn-demo" onclick="window.elevatorApp.runScenario('normal-trip')">
+          <i class="fa-solid fa-arrow-trend-up"></i> 1. Normal Ride (F1→F3)
+        </button>
+        <button class="btn-demo" onclick="window.elevatorApp.runScenario('multi-request')">
+          <i class="fa-solid fa-layer-group highlight-cyan"></i> 2. Multi-Requests (F4 + F2↓ + F3↑ + F1↑)
+        </button>
+        <button class="btn-demo" onclick="window.elevatorApp.runScenario('request-during-transit')">
+          <i class="fa-solid fa-bolt highlight-purple"></i> 3. Mid-Transit Request Injection
+        </button>
+        <button class="btn-demo" onclick="window.elevatorApp.runScenario('boundary-top')">
+          <i class="fa-solid fa-shield"></i> 4. Floor 4 + UP (Self-Loop)
+        </button>
+        <button class="btn-demo" onclick="window.elevatorApp.runScenario('boundary-bottom')">
+          <i class="fa-solid fa-shield"></i> 5. Floor 1 + DOWN (Self-Loop)
+        </button>
+        <button class="btn-demo" onclick="window.elevatorApp.runScenario('door-safety')">
+          <i class="fa-solid fa-door-open"></i> 6. Door Safety Interlock
+        </button>
+        <button class="btn-demo demo-emergency" onclick="window.elevatorApp.runScenario('emergency-transit')">
+          <i class="fa-solid fa-triangle-exclamation"></i> 7. Emergency in Transit
+        </button>
+        <button class="btn-demo" onclick="window.elevatorApp.runScenario('emergency-recovery')">
+          <i class="fa-solid fa-life-ring highlight-emerald"></i> 8. Emergency Recovery
+        </button>
+      </div>
+    </section>
+
+    <!-- ====================================================
+         PEDAGOGICAL & AUTOMATA ANALYSIS PANELS (Standard Mode)
+         ==================================================== -->
+    <div class="analysis-grid standard-section">
+
+      <!-- Panel 1: Live State & Dynamic Transition Explanation -->
+      <section class="card glass-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <i class="fa-solid fa-circle-info header-icon"></i>
+            <div>
+              <h3 class="card-title">Live DFA State &amp; Formal Dynamics</h3>
+              <span class="card-subtitle">Tuple Evaluation q = (currentFloor, doorStatus, direction, pendingRequests, mode)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <!-- State Info Matrix -->
+          <div class="state-metrics-grid">
+            <div class="metric-card">
+              <span class="metric-lbl">CURRENT STATE:</span>
+              <span class="metric-val highlight-cyan font-mono" id="cardCurrentState">q(1, CLOSED, IDLE)</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-lbl">CURRENT FLOOR:</span>
+              <span class="metric-val" id="cardCurrentFloor">Floor 1</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-lbl">DOOR STATUS:</span>
+              <span class="metric-val" id="cardDoorStatus">CLOSED</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-lbl">DIRECTION:</span>
+              <span class="metric-val highlight-purple font-mono" id="cardDirection">IDLE</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-lbl">PENDING REQS BITMASK:</span>
+              <span class="metric-val highlight-blue font-mono" id="cardPendingReqs">0x000 (∅)</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-lbl">AUTOMATON MODE:</span>
+              <span class="metric-val status-green" id="cardAutomatonStatus">NORMAL</span>
+            </div>
+          </div>
+
+          <!-- Dynamic Explanation Box -->
+          <div class="explanation-box">
+            <div class="explanation-header">
+              <i class="fa-solid fa-graduation-cap"></i>
+              <span>DETERMINISTIC TRANSITION EXPLANATION</span>
+            </div>
+            <p class="explanation-text" id="explanationText">
+              The elevator is initialized at Floor 1 with the door closed and direction IDLE. The composite DFA transition function δ(q, σ) deterministically routes all incoming requests.
+            </p>
+            <div class="explanation-math font-mono" id="explanationMath">
+              δ(q0, T) = q0
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Panel 2: DFA String Sequence Tester -->
+      <section class="card glass-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <i class="fa-solid fa-vial-circle-check header-icon"></i>
+            <div>
+              <h3 class="card-title">Test DFA String Sequence</h3>
+              <span class="card-subtitle">Feed an arbitrary sequence of symbols from Σ = {U, D, O, C, T, E, R, REQ_...}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="seq-input-group">
+            <label for="seqInputBox" class="seq-label">Input String (Space separated symbols from Σ):</label>
+            <div class="seq-input-wrapper">
+              <input type="text" id="seqInputBox" class="seq-input font-mono" placeholder="e.g. REQ_CABIN_4 T T T" value="REQ_CABIN_4 T T T">
+              <button id="btnRunDfaSeq" class="btn-run-seq" onclick="window.elevatorApp.runSequenceFromInput()">
+                <i class="fa-solid fa-play"></i> RUN DFA
+              </button>
+            </div>
+            
+            <!-- Quick Chips for building sequences -->
+            <div class="token-chips-bar">
+              <span class="token-hint">Add Token:</span>
+              <button class="token-chip" onclick="window.elevatorApp.appendTokenToSeq('REQ_CABIN_4')">+ F4</button>
+              <button class="token-chip" onclick="window.elevatorApp.appendTokenToSeq('REQ_HALL_2_DOWN')">+ 2↓</button>
+              <button class="token-chip" onclick="window.elevatorApp.appendTokenToSeq('REQ_HALL_3_UP')">+ 3↑</button>
+              <button class="token-chip" onclick="window.elevatorApp.appendTokenToSeq('T')">+ T (Tick)</button>
+              <button class="token-chip" onclick="window.elevatorApp.appendTokenToSeq('U')">+ U</button>
+              <button class="token-chip" onclick="window.elevatorApp.appendTokenToSeq('D')">+ D</button>
+              <button class="token-chip" onclick="window.elevatorApp.appendTokenToSeq('O')">+ O</button>
+              <button class="token-chip" onclick="window.elevatorApp.appendTokenToSeq('C')">+ C</button>
+              <button class="token-chip" onclick="window.elevatorApp.appendTokenToSeq('E')">+ E</button>
+              <button class="token-chip" onclick="window.elevatorApp.appendTokenToSeq('R')">+ R</button>
+              <button class="token-chip token-clear" onclick="window.elevatorApp.clearSeqInput()">Clear</button>
+            </div>
+          </div>
+
+          <!-- Trace Result Display -->
+          <div class="seq-trace-box" id="seqTraceBox">
+            <div class="trace-status-header" id="traceStatusHeader">
+              <span class="trace-badge badge-neutral" id="traceResultBadge">READY TO TEST</span>
+              <span class="trace-summary" id="traceSummary">Enter an input string and click RUN DFA.</span>
+            </div>
+            <div class="trace-steps-container" id="traceStepsContainer">
+              <div class="trace-empty-hint">Evaluation trace will appear here...</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ====================================================
+         TRANSITION LOG & TRANSITION TABLE (Standard Mode)
+         ==================================================== -->
+    <div class="bottom-grid standard-section">
+
+      <!-- DFA Execution Log -->
+      <section class="card glass-card log-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <i class="fa-solid fa-clock-rotate-left header-icon"></i>
+            <div>
+              <h3 class="card-title">DFA Execution Log</h3>
+              <span class="card-subtitle">Timestamped real-time log of deterministic state transitions</span>
+            </div>
+          </div>
+          <div class="log-actions">
+            <button class="btn-small" onclick="window.elevatorApp.clearHistory()">
+              <i class="fa-solid fa-trash-can"></i> Clear History
+            </button>
+            <button class="btn-small" onclick="window.elevatorApp.exportLog()">
+              <i class="fa-solid fa-download"></i> Export Log
+            </button>
+          </div>
+        </div>
+
+        <div class="card-body log-body">
+          <div class="log-table-header">
+            <span class="col-step">#</span>
+            <span class="col-curr">FROM</span>
+            <span class="col-input">INPUT</span>
+            <span class="col-next">TO (NEXT)</span>
+            <span class="col-desc">PHYSICAL ACTION &amp; DFA TRANSITION</span>
+            <span class="col-time">TIME</span>
+          </div>
+          <div class="log-list" id="executionLogList">
+            <!-- Dynamic Log Items -->
+            <div class="log-item initial-entry">
+              <span class="col-step">00</span>
+              <span class="col-curr state-tag">q0</span>
+              <span class="col-input symbol-tag">—</span>
+              <span class="col-next state-tag">q0</span>
+              <span class="col-desc">System initialized at initial state q0 = (Floor 1, CLOSED, IDLE, ∅, NORMAL).</span>
+              <span class="col-time">00:00:00</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Complete Structural Transition Table (Collapsible) -->
+      <section class="card glass-card table-card">
+        <div class="card-header" id="tableHeaderAccordion" style="cursor: pointer;" onclick="window.elevatorApp.toggleTableCollapse()">
+          <div class="card-title-group">
+            <i class="fa-solid fa-table-cells header-icon"></i>
+            <div>
+              <h3 class="card-title">Structural DFA Transition Table (δ)</h3>
+              <span class="card-subtitle">Exhaustive deterministic mapping for base configurations</span>
+            </div>
+          </div>
+          <div class="table-accordion-toggle">
+            <span class="accordion-hint" id="tableToggleHint">Click to Collapse</span>
+            <i class="fa-solid fa-chevron-up" id="tableChevronIcon"></i>
+          </div>
+        </div>
+
+        <div class="card-body table-body" id="transitionTableContainer">
+          <p class="table-note">
+            <i class="fa-solid fa-lightbulb"></i>
+            Active row represents current structural state; active column represents last input symbol; active glowing cell represents resulting deterministic transition.
+          </p>
+          <div class="table-responsive">
+            <table class="dfa-matrix-table" id="matrixTable">
+              <thead>
+                <tr>
+                  <th class="th-state">State Configuration</th>
+                  <th class="th-meaning">Physical Description</th>
+                  <th class="th-symbol" data-col-symbol="U">U (Up)</th>
+                  <th class="th-symbol" data-col-symbol="D">D (Down)</th>
+                  <th class="th-symbol" data-col-symbol="O">O (Open)</th>
+                  <th class="th-symbol" data-col-symbol="C">C (Close)</th>
+                  <th class="th-symbol" data-col-symbol="T">T (Tick)</th>
+                  <th class="th-symbol" data-col-symbol="E">E (Emergency)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Rows injected dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ====================================================
+         FORMAL THEORY REFERENCE SECTION (Standard Mode)
+         ==================================================== -->
+    <section class="card glass-card theory-section standard-section">
+      <div class="card-header">
+        <div class="card-title-group">
+          <i class="fa-solid fa-book-bookmark header-icon"></i>
+          <div>
+            <h3 class="card-title">Formal Automata Theory &amp; Mathematical Proof</h3>
+            <span class="card-subtitle">Formal definition of 5-tuple M = (Q, Σ, δ, q0, F) and Viva Reference</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-body theory-body">
+        <div class="theory-grid">
+          <div class="theory-card">
+            <h4><i class="fa-solid fa-cube"></i> Formal 5-Tuple Definition</h4>
+            <p class="font-mono formula-block">
+              M = (Q, &Sigma;, &delta;, q<sub>0</sub>, F)
+            </p>
+            <ul class="theory-list">
+              <li><strong>Q</strong> = Finite set of all composite configurations (Floor &times; Door &times; Direction &times; Requests &times; Mode). Total reachable states: &gt;1,500 finite configurations.</li>
+              <li><strong>&Sigma;</strong> = { U, D, O, C, T, E, R, REQ_CABIN_1..4, REQ_HALL_1..3_UP, REQ_HALL_2..4_DOWN } (17 discrete input symbols).</li>
+              <li><strong>q<sub>0</sub></strong> = (Floor 1, CLOSED, IDLE, &empty;, NORMAL) — Initial Ground Configuration.</li>
+              <li><strong>F</strong> = All safe operational states where Mode = NORMAL.</li>
+              <li><strong>&delta;</strong>: Q &times; &Sigma; &rarr; Q — Total, deterministic transition function implementing SCAN collective scheduling.</li>
+            </ul>
+          </div>
+
+          <div class="theory-card">
+            <h4><i class="fa-solid fa-graduation-cap"></i> Viva Explanation: Why is this still a DFA?</h4>
+            <p class="theory-desc">
+              <strong>Formal Proof:</strong> Although the simulator supports realistic multi-request scheduling and simultaneous users, the state space is strictly finite because:
+            </p>
+            <div class="safety-points">
+              <div class="safety-item">
+                <span class="safety-badge">Finite Domains</span>
+                <span>Floors (4) &times; Doors (2) &times; Directions (3) &times; Request Subsets (2<sup>10</sup> = 1024) &times; Modes (2) = Finite bounded set.</span>
+              </div>
+              <div class="safety-item">
+                <span class="safety-badge">Determinism</span>
+                <span>For every state q &isin; Q and every symbol &sigma; &isin; &Sigma;, there exists <em>exactly one</em> next state &delta;(q, &sigma;).</span>
+              </div>
+              <div class="safety-item">
+                <span class="safety-badge">No Deadlocks</span>
+                <span>Boundary inputs (e.g. Floor 4 + UP) and door-open movement attempts execute safe self-loops rather than crashing into dead states.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================
+         COURSE, GUIDE & TEAM CREDITS FOOTER
+         ==================================================== -->
+    <footer class="card glass-card project-footer standard-section">
+      <div class="footer-grid">
+        <div class="footer-course-col">
+          <div class="footer-badge-row">
+            <span class="course-pill"><i class="fa-solid fa-file-signature"></i> In Semester Evaluation (ISE) Project</span>
+          </div>
+          <h3 class="footer-course-title">Finite Automata and Formal Languages</h3>
+          <p class="footer-course-sub"><i class="fa-solid fa-building-columns"></i> Department of Computer Science and Engineering</p>
+          
+          <!-- Course Instructor & Guide Card -->
+          <div class="guide-card">
+            <div class="guide-avatar"><i class="fa-solid fa-chalkboard-user"></i></div>
+            <div class="guide-info">
+              <span class="guide-label">Course Instructor &amp; Project Guide</span>
+              <strong class="guide-name">Professor Mrs. G. G. Shingan</strong>
+            </div>
+          </div>
+
+          <p class="footer-course-desc">
+            Deterministic Finite Automaton (DFA) collective elevator control system implementing real-time SCAN scheduling policy and formal 5-tuple verification <span class="font-mono highlight-cyan">M = (Q, &Sigma;, &delta;, q<sub>0</sub>, F)</span>.
+          </p>
+        </div>
+
+        <div class="footer-team-col">
+          <h4 class="team-title"><i class="fa-solid fa-users"></i> Project Team Members</h4>
+          <div class="team-members-grid">
+            <div class="team-card">
+              <div class="member-avatar"><i class="fa-solid fa-user-tie"></i></div>
+              <div class="member-info">
+                <span class="member-name">Harshwardhan Patil</span>
+                <span class="member-role">CSE &bull; Team Member</span>
+              </div>
+            </div>
+            <div class="team-card">
+              <div class="member-avatar"><i class="fa-solid fa-user"></i></div>
+              <div class="member-info">
+                <span class="member-name">Aditi Nikam</span>
+                <span class="member-role">CSE &bull; Team Member</span>
+              </div>
+            </div>
+            <div class="team-card">
+              <div class="member-avatar"><i class="fa-solid fa-user"></i></div>
+              <div class="member-info">
+                <span class="member-name">Navmi Bhat</span>
+                <span class="member-role">CSE &bull; Team Member</span>
+              </div>
+            </div>
+            <div class="team-card">
+              <div class="member-avatar"><i class="fa-solid fa-user"></i></div>
+              <div class="member-info">
+                <span class="member-name">Ruturaj Lokhande</span>
+                <span class="member-role">CSE &bull; Team Member</span>
+              </div>
+            </div>
+            <div class="team-card">
+              <div class="member-avatar"><i class="fa-solid fa-user"></i></div>
+              <div class="member-info">
+                <span class="member-name">Yogita Patil</span>
+                <span class="member-role">CSE &bull; Team Member</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom-line">
+        <span>Smart Elevator — Deterministic Finite Automaton (DFA) Simulator</span>
+        <span>Department of Computer Science and Engineering &bull; In Semester Evaluation (ISE)</span>
+      </div>
+    </footer>
+
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- JavaScript Application -->
+  <script src="script.js"></script>
+</body>
+</html>
