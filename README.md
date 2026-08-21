@@ -15,7 +15,7 @@
 ### 👥 Project Team Members
 1. **Harshwardhan Patil** (CSE)
 2. **Aditi Nikam** (CSE)
-3. **Navmi Bhat** (CSE)
+3. **Navami Bhat** (CSE)
 4. **Ruturaj Lokhande** (CSE)
 5. **Yogita Patil** (CSE)
 
