@@ -472,6 +472,58 @@
   }
 
   // --------------------------------------------------------------------------
+  // 6. GENERIC DFA MINIMIZATION (uses only the user-entered DFA definition)
+  // --------------------------------------------------------------------------
+  function minimizeDfa(dfa) {
+    const stateIndex = new Map(dfa.states.map((state, index) => [state, index]));
+    const symbolCount = dfa.alphabet.length;
+    const allTransitions = dfa.states.map(state => dfa.alphabet.map(symbol => stateIndex.get(dfa.transitions[state][symbol])));
+    const reachableAll = [stateIndex.get(dfa.initialState)];
+    const reachableIndex = new Int32Array(dfa.states.length).fill(-1);
+    reachableIndex[reachableAll[0]] = 0;
+    for (let cursor = 0; cursor < reachableAll.length; cursor++) {
+      for (const target of allTransitions[reachableAll[cursor]]) {
+        if (reachableIndex[target] === -1) { reachableIndex[target] = reachableAll.length; reachableAll.push(target); }
+      }
+    }
+    const accepting = reachableAll.map(index => dfa.finalStates.has(dfa.states[index]));
+    const transitions = reachableAll.map(allIndex => allTransitions[allIndex].map(target => reachableIndex[target]));
+    let blockOf = accepting.map(value => value ? 0 : 1);
+    let blockCount = new Set(blockOf).size;
+    while (true) {
+      const signatures = new Map();
+      const next = transitions.map((row, index) => {
+        const signature = `${blockOf[index]}|${row.map(target => blockOf[target]).join(',')}`;
+        if (!signatures.has(signature)) signatures.set(signature, signatures.size);
+        return signatures.get(signature);
+      });
+      if (signatures.size === blockCount) { blockOf = next; break; }
+      blockOf = next; blockCount = signatures.size;
+    }
+    const groups = Array.from({ length: blockCount }, () => []);
+    blockOf.forEach((block, index) => groups[block].push(index));
+    const minimizedTransitions = groups.map(group => transitions[group[0]].map(target => blockOf[target]));
+    return { ...dfa, reachableAll, transitions, accepting, blockOf, groups, minimizedTransitions,
+      reachableCount: reachableAll.length, unreachableStates: dfa.states.filter((_, i) => reachableIndex[i] === -1) };
+  }
+
+  function checkDfaEquivalence(model) {
+    const queue = [[0, model.blockOf[0], []]];
+    const seen = new Set([`0|${model.blockOf[0]}`]);
+    for (let cursor = 0; cursor < queue.length; cursor++) {
+      const [original, minimized, word] = queue[cursor];
+      if (model.accepting[original] !== model.accepting[model.groups[minimized][0]]) return { equivalent: false, counterexample: word };
+      model.alphabet.forEach((symbol, symbolIndex) => {
+        const nextOriginal = model.transitions[original][symbolIndex];
+        const nextMinimized = model.minimizedTransitions[minimized][symbolIndex];
+        const key = `${nextOriginal}|${nextMinimized}`;
+        if (!seen.has(key)) { seen.add(key); queue.push([nextOriginal, nextMinimized, word.concat(symbol)]); }
+      });
+    }
+    return { equivalent: true, counterexample: null };
+  }
+
+  // --------------------------------------------------------------------------
   // 6. AUDIO SYNTHESIZER (Web Audio API)
   // --------------------------------------------------------------------------
   class SoundSynthesizer {
@@ -600,6 +652,9 @@
       this.sound = new SoundSynthesizer();
       this.isPresentationMode = false;
       this.activeArrowFilter = 'all';
+      this.dfaAnalysisModel = null;
+      this.dfaAnalysisPage = 0;
+      this.dfaToolTimer = null;
 
       // SVG Node Map for Visualizer
       this.nodeCoords = {
@@ -740,6 +795,24 @@
       this.dom.transitionTableContainer = document.getElementById('transitionTableContainer');
       this.dom.tableToggleHint = document.getElementById('tableToggleHint');
       this.dom.tableChevronIcon = document.getElementById('tableChevronIcon');
+
+      // Formal minimization & equivalence lab
+      this.dom.runDfaAnalysisBtn = document.getElementById('runDfaAnalysisBtn');
+      this.dom.newDfaBtn = document.getElementById('newDfaBtn');
+      this.dom.dfaStatesInput = document.getElementById('dfaStatesInput');
+      this.dom.dfaAlphabetInput = document.getElementById('dfaAlphabetInput');
+      this.dom.dfaInitialStateInput = document.getElementById('dfaInitialStateInput');
+      this.dom.dfaFinalStatesInput = document.getElementById('dfaFinalStatesInput');
+      this.dom.userTransitionTableContainer = document.getElementById('userTransitionTableContainer');
+      this.dom.liveElevatorMirror = document.getElementById('liveElevatorMirror');
+      this.dom.dfaAnalysisStatus = document.getElementById('dfaAnalysisStatus');
+      this.dom.dfaAnalysisMetrics = document.getElementById('dfaAnalysisMetrics');
+      this.dom.equivalenceResult = document.getElementById('equivalenceResult');
+      this.dom.equivalentGroupsSummary = document.getElementById('equivalentGroupsSummary');
+      this.dom.equivalentGroupsList = document.getElementById('equivalentGroupsList');
+      this.dom.minimizedTableSummary = document.getElementById('minimizedTableSummary');
+      this.dom.minimizedDfaTableBody = document.querySelector('#minimizedDfaTable tbody');
+      this.dom.minimizedTablePagination = document.getElementById('minimizedTablePagination');
 
       this.dom.toastContainer = document.getElementById('toastContainer');
     }
@@ -1069,6 +1142,13 @@
 
       // 10. Radar Cards update
       this.renderRadarCards(nextState);
+      this.updateLiveElevatorMirror(nextState, symbol);
+    }
+
+    updateLiveElevatorMirror(state = this.currentState, symbol = this.lastInputSymbol) {
+      if (!this.dom.liveElevatorMirror) return;
+      const requests = state.getRequestList().join(', ') || 'none';
+      this.dom.liveElevatorMirror.innerHTML = `<i class="fa-solid fa-elevator"></i><span>Live elevator δ input <code>${symbol}</code>: <strong>Floor ${state.floor}</strong> · ${state.door} · ${state.direction} · ${state.mode} · Requests: ${requests}</span>`;
     }
 
     updateCabinStatusMsg() {
@@ -1448,6 +1528,148 @@
       });
     }
 
+    runDfaAnalysis() {
+      if (this.isDfaAnalysisRunning) return;
+      this.isDfaAnalysisRunning = true;
+      this.dom.runDfaAnalysisBtn.disabled = true;
+      this.dom.dfaAnalysisStatus.textContent = 'Building the actual transition graph and minimizing reachable states…';
+      this.dom.equivalenceResult.className = 'equivalence-result neutral';
+      this.dom.equivalenceResult.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Formal equivalence check in progress.</span>';
+
+      // Yield once so the status is painted before the finite analysis starts.
+      setTimeout(() => {
+        try {
+          this.dfaAnalysisModel = buildAndMinimizeActualDfa();
+          const result = checkOriginalAndMinimizedEquivalence(this.dfaAnalysisModel);
+          this.dfaAnalysisPage = 0;
+          this.renderDfaAnalysis(result);
+          this.showToast('DFA minimization and equivalence verification complete', 'success');
+        } catch (error) {
+          console.error('DFA analysis failed:', error);
+          this.dom.dfaAnalysisStatus.textContent = 'Analysis could not complete. See the browser console for details.';
+          this.dom.equivalenceResult.className = 'equivalence-result not-equivalent';
+          this.dom.equivalenceResult.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>Analysis error</span>';
+        } finally {
+          this.isDfaAnalysisRunning = false;
+          this.dom.runDfaAnalysisBtn.disabled = false;
+        }
+      }, 30);
+    }
+
+    renderDfaAnalysis(equivalence) {
+      const model = this.dfaAnalysisModel;
+      const reduction = ((model.reachableCount - model.groups.length) / model.reachableCount) * 100;
+      this.dom.dfaAnalysisStatus.textContent = `Completed partition refinement over ${model.reachableCount.toLocaleString()} reachable states and ${DFA_ALPHABET.length} input symbols.`;
+      this.dom.dfaAnalysisMetrics.innerHTML = [
+        ['Original Q', model.originalCount],
+        ['Reachable', model.reachableCount],
+        ['Unreachable', model.unreachableCount],
+        ['Minimized Q', model.groups.length],
+        ['Reduction', `${reduction.toFixed(2)}%`]
+      ].map(([label, value]) => `<div class="analysis-metric"><span>${label}</span><strong>${Number.isInteger(value) ? value.toLocaleString() : value}</strong></div>`).join('');
+
+      if (equivalence.equivalent) {
+        this.dom.equivalenceResult.className = 'equivalence-result equivalent';
+        this.dom.equivalenceResult.innerHTML = '<i class="fa-solid fa-circle-check"></i><span><strong>Equivalent</strong> — product-DFA search found no accepting-status mismatch.</span>';
+      } else {
+        const word = equivalence.counterexample.length ? equivalence.counterexample.join(' ') : 'ε';
+        this.dom.equivalenceResult.className = 'equivalence-result not-equivalent';
+        this.dom.equivalenceResult.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i><span><strong>Not Equivalent</strong> — counterexample: <code>${word}</code></span>`;
+      }
+
+      const mergedGroups = model.groups.filter(group => group.length > 1);
+      this.dom.equivalentGroupsSummary.textContent = `${model.groups.length.toLocaleString()} equivalence classes total; ${mergedGroups.length.toLocaleString()} classes merge two or more reachable states.`;
+      const maxGroupsToShow = 80;
+      this.dom.equivalentGroupsList.innerHTML = '';
+      mergedGroups.slice(0, maxGroupsToShow).forEach((group, index) => {
+        const item = document.createElement('div');
+        item.className = 'equivalent-group-item';
+        const sample = group.slice(0, 3).map(state => model.allStates[model.reachableAllIndices[state]].getCompactDisplay()).join('  =  ');
+        item.textContent = `M${model.blockOf[group[0]]}  (${group.length} states): ${sample}${group.length > 3 ? '  …' : ''}`;
+        this.dom.equivalentGroupsList.appendChild(item);
+      });
+      if (!mergedGroups.length) this.dom.equivalentGroupsList.innerHTML = '<div class="analysis-empty">No reachable states were merged.</div>';
+      if (mergedGroups.length > maxGroupsToShow) {
+        const note = document.createElement('div');
+        note.className = 'analysis-empty';
+        note.textContent = `Showing the first ${maxGroupsToShow} merged classes.`;
+        this.dom.equivalentGroupsList.appendChild(note);
+      }
+      this.renderMinimizedTransitionTable();
+      this.updateLiveDfaMapping(this.currentState, this.lastInputSymbol);
+    }
+
+    updateLiveDfaMapping(state = this.currentState, symbol = this.lastInputSymbol) {
+      if (!this.dom.liveDfaMapping) return;
+      const model = this.dfaAnalysisModel;
+      if (!model) {
+        this.dom.liveDfaMapping.innerHTML = '<i class="fa-solid fa-satellite-dish"></i><span>Preparing live DFA mapping from the current simulation…</span>';
+        return;
+      }
+      const allIndex = model.indexByKey.get(state.getKey());
+      const reachableIndex = allIndex === undefined ? -1 : model.reachableIndexByAllIndex[allIndex];
+      if (reachableIndex < 0) {
+        this.dom.liveDfaMapping.innerHTML = `<i class="fa-solid fa-satellite-dish"></i><span>Live state: <code>${state.getCompactDisplay()}</code> — outside the q0-reachable core.</span>`;
+        return;
+      }
+      const minimizedState = model.blockOf[reachableIndex];
+      this.dom.liveDfaMapping.innerHTML = `<i class="fa-solid fa-satellite-dish"></i><span>Live δ update <code>${symbol}</code>: <code>${state.getCompactDisplay()}</code> → minimized state <strong>M${minimizedState}</strong> (${model.accepting[reachableIndex] ? 'accepting / NORMAL' : 'non-accepting / EMERGENCY'}).</span>`;
+    }
+
+    renderMinimizedTransitionTable() {
+      const model = this.dfaAnalysisModel;
+      if (!model) return;
+      const pageSize = 25;
+      const pageCount = Math.ceil(model.groups.length / pageSize);
+      this.dfaAnalysisPage = Math.max(0, Math.min(this.dfaAnalysisPage, pageCount - 1));
+      const start = this.dfaAnalysisPage * pageSize;
+      const end = Math.min(start + pageSize, model.groups.length);
+      this.dom.minimizedTableSummary.textContent = `Showing classes ${start + 1}–${end} of ${model.groups.length.toLocaleString()}; each cell is δ(Mi, σ) = Mj.`;
+      this.dom.minimizedDfaTableBody.innerHTML = '';
+      for (let block = start; block < end; block++) {
+        const representative = model.groups[block][0];
+        const state = model.allStates[model.reachableAllIndices[representative]];
+        const row = document.createElement('tr');
+        const transitions = DFA_ALPHABET.map((symbol, index) => `${symbol}→M${model.minimizedTransitions[block * model.symbolCount + index]}`).join(' · ');
+        row.innerHTML = `<td class="td-state-name">M${block}</td><td>${model.accepting[representative] ? 'Yes' : 'No'}</td><td class="td-desc">${state.getCompactDisplay()} <span class="group-size">(${model.groups[block].length})</span></td><td class="minimized-transition-cell">${transitions}</td>`;
+        this.dom.minimizedDfaTableBody.appendChild(row);
+      }
+      this.dom.minimizedTablePagination.innerHTML = '';
+      if (pageCount > 1) {
+        const previous = document.createElement('button');
+        previous.className = 'btn-small'; previous.textContent = '← Previous'; previous.disabled = this.dfaAnalysisPage === 0;
+        previous.addEventListener('click', () => { this.dfaAnalysisPage--; this.renderMinimizedTransitionTable(); });
+        const indicator = document.createElement('span'); indicator.textContent = `Page ${this.dfaAnalysisPage + 1} / ${pageCount}`;
+        const next = document.createElement('button');
+        next.className = 'btn-small'; next.textContent = 'Next →'; next.disabled = this.dfaAnalysisPage === pageCount - 1;
+        next.addEventListener('click', () => { this.dfaAnalysisPage++; this.renderMinimizedTransitionTable(); });
+        this.dom.minimizedTablePagination.append(previous, indicator, next);
+      }
+    }
+
+    // User-defined DFA editor overrides the legacy analysis display above.
+    splitDfaTokens(value) { return value.trim().split(/[\s,]+/).filter(Boolean); }
+    generateDfaTransitionTable() {
+      const states = this.splitDfaTokens(this.dom.dfaStatesInput.value), alphabet = this.splitDfaTokens(this.dom.dfaAlphabetInput.value);
+      if (!states.length || !alphabet.length || new Set(states).size !== states.length || new Set(alphabet).size !== alphabet.length) return this.showDfaToolError('Enter unique states and alphabet symbols.');
+      const table = document.createElement('table'); table.className = 'dfa-matrix-table'; table.innerHTML = `<thead><tr><th>δ</th>${alphabet.map(x => `<th>${x}</th>`).join('')}</tr></thead>`;
+      const body = document.createElement('tbody'); states.forEach(state => { const row = document.createElement('tr'); row.innerHTML = `<td class="td-state-name">${state}</td>`; alphabet.forEach(symbol => { const cell = document.createElement('td'), select = document.createElement('select'); select.className = 'transition-select'; select.dataset.transition = `${state}|${symbol}`; select.innerHTML = `<option value="">Select</option>${states.map(x => `<option>${x}</option>`).join('')}`; select.addEventListener('change', () => this.onDfaDefinitionChanged()); cell.appendChild(select); row.appendChild(cell); }); body.appendChild(row); });
+      table.appendChild(body); this.dom.userTransitionTableContainer.replaceChildren(table); this.clearDfaResults(); this.dom.dfaAnalysisStatus.textContent = 'Transition table generated. Complete every δ entry.';
+    }
+    readUserDfa() {
+      const states = this.splitDfaTokens(this.dom.dfaStatesInput.value), alphabet = this.splitDfaTokens(this.dom.dfaAlphabetInput.value), initialState = this.dom.dfaInitialStateInput.value.trim(), finals = this.splitDfaTokens(this.dom.dfaFinalStatesInput.value);
+      if (!states.length || !alphabet.length || !initialState) throw Error('States, alphabet, and initial state are required.'); if (!states.includes(initialState) || finals.some(x => !states.includes(x))) throw Error('Initial and final states must belong to Q.'); if (new Set(states).size !== states.length || new Set(alphabet).size !== alphabet.length) throw Error('States and symbols must be unique.');
+      const transitions = Object.fromEntries(states.map(s => [s, {}])); for (const s of states) for (const a of alphabet) { const input = [...this.dom.userTransitionTableContainer.querySelectorAll('select')].find(x => x.dataset.transition === `${s}|${a}`); if (!input || !input.value) throw Error(`Missing transition δ(${s}, ${a}).`); transitions[s][a] = input.value; }
+      return { states, alphabet, initialState, finalStates: new Set(finals), transitions };
+    }
+    runDfaAnalysis() { try { this.dfaAnalysisModel = minimizeDfa(this.readUserDfa()); this.renderDfaAnalysis(checkDfaEquivalence(this.dfaAnalysisModel)); } catch (e) { this.showDfaToolError(e.message); } }
+    onDfaDefinitionChanged() { this.clearDfaResults(); clearTimeout(this.dfaToolTimer); this.dfaToolTimer = setTimeout(() => this.runDfaAnalysis(), 300); }
+    showDfaToolError(message) { this.clearDfaResults(); this.dom.dfaAnalysisStatus.textContent = message; this.dom.dfaAnalysisStatus.classList.add('dfa-error'); }
+    clearDfaResults() { this.dfaAnalysisModel = null; this.dom.dfaAnalysisMetrics.querySelectorAll('strong').forEach(x => x.textContent = '—'); this.dom.equivalenceResult.className = 'equivalence-result neutral'; this.dom.equivalenceResult.innerHTML = '<i class="fa-solid fa-circle-question"></i><span>Complete the DFA to see results.</span>'; this.dom.equivalentGroupsList.innerHTML = ''; this.dom.equivalentGroupsSummary.textContent = 'No groups computed yet.'; this.dom.minimizedDfaTableBody.innerHTML = '<tr><td colspan="4" class="analysis-empty">Complete a DFA to generate this table.</td></tr>'; this.dom.minimizedTableSummary.textContent = 'No minimized transitions computed yet.'; }
+    resetDfaTool() { [this.dom.dfaStatesInput, this.dom.dfaAlphabetInput, this.dom.dfaInitialStateInput, this.dom.dfaFinalStatesInput].forEach(x => x.value = ''); this.dom.userTransitionTableContainer.innerHTML = '<div class="analysis-empty">Enter Q and Σ to generate the transition table.</div>'; this.clearDfaResults(); this.dom.dfaAnalysisStatus.textContent = 'New DFA ready.'; }
+    renderDfaAnalysis(eq) { const m = this.dfaAnalysisModel, reduction = ((m.states.length - m.groups.length) / m.states.length * 100).toFixed(2); this.dom.dfaAnalysisStatus.textContent = 'Analysis complete — results update when you edit the DFA.'; this.dom.dfaAnalysisStatus.classList.remove('dfa-error'); this.dom.dfaAnalysisMetrics.innerHTML = [['Original Q',m.states.length],['Reachable',m.reachableCount],['Unreachable',m.unreachableStates.length],['Minimized Q',m.groups.length],['Reduction',`${reduction}%`]].map(([a,b])=>`<div class="analysis-metric"><span>${a}</span><strong>${b}</strong></div>`).join(''); this.dom.equivalenceResult.className = `equivalence-result ${eq.equivalent?'equivalent':'not-equivalent'}`; this.dom.equivalenceResult.innerHTML = `<i class="fa-solid fa-circle-check"></i><span><strong>${eq.equivalent?'Equivalent':'Not Equivalent'}</strong>${eq.equivalent?' — product-DFA search found no mismatch.':` — counterexample: ${eq.counterexample.join(' ')||'ε'}`}</span>`; this.dom.equivalentGroupsSummary.textContent = `Unreachable: ${m.unreachableStates.join(', ') || 'none'}.`; this.dom.equivalentGroupsList.innerHTML = m.groups.map((g,i)=>`<div class="equivalent-group-item">M${i}: { ${g.map(x=>m.states[m.reachableAll[x]]).join(', ')} }</div>`).join(''); this.renderMinimizedTransitionTable(); }
+    renderMinimizedTransitionTable() { const m=this.dfaAnalysisModel; if(!m)return; this.dom.minimizedTableSummary.textContent='Calculated from your δ table.'; this.dom.minimizedDfaTableBody.innerHTML=m.groups.map((g,i)=>`<tr><td class="td-state-name">M${i}</td><td>${m.accepting[g[0]]?'Yes':'No'}</td><td class="td-desc">{ ${g.map(x=>m.states[m.reachableAll[x]]).join(', ')} }</td><td class="minimized-transition-cell">${m.alphabet.map((a,j)=>`${a}→M${m.minimizedTransitions[i][j]}`).join(' · ')}</td></tr>`).join(''); }
+
     // ------------------------------------------------------------------------
     // 13. PRESET EDUCATIONAL SCENARIOS (Viva & Classroom Demos)
     // ------------------------------------------------------------------------
@@ -1716,6 +1938,10 @@
     // 16. EVENT BINDINGS & KEYBOARD SHORTCUTS
     // ------------------------------------------------------------------------
     bindEvents() {
+      if (this.dom.dfaStatesInput && this.dom.dfaAlphabetInput) {
+        [this.dom.dfaStatesInput, this.dom.dfaAlphabetInput].forEach(input => input.addEventListener('change', () => this.generateDfaTransitionTable()));
+        [this.dom.dfaInitialStateInput, this.dom.dfaFinalStatesInput].forEach(input => input.addEventListener('input', () => this.onDfaDefinitionChanged()));
+      }
       this.dom.soundToggleBtn.addEventListener('click', () => {
         this.sound.enabled = !this.sound.enabled;
         this.dom.soundLabel.textContent = `Sound: ${this.sound.enabled ? 'ON' : 'OFF'}`;

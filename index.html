@@ -51,12 +51,6 @@
 
     <!-- Quick Actions in Presentation Header -->
     <div class="pres-header-actions">
-      <button class="btn-header btn-pres-demo" onclick="window.elevatorApp.runScenario('multi-request')">
-        <i class="fa-solid fa-layer-group"></i> Multi-Request Demo
-      </button>
-      <button class="btn-header btn-pres-demo demo-emergency" onclick="window.elevatorApp.runScenario('emergency-transit')">
-        <i class="fa-solid fa-triangle-exclamation"></i> Emergency Demo
-      </button>
       <button class="btn-header btn-reset" onclick="window.elevatorApp.resetSimulator()">
         <i class="fa-solid fa-rotate-left"></i> Reset
       </button>
@@ -683,39 +677,6 @@
 
     </div>
 
-    <!-- ====================================================
-         PRESET EDUCATIONAL SCENARIOS BAR (Standard Mode)
-         ==================================================== -->
-    <section class="card glass-card demo-section standard-section">
-      <div class="demo-header">
-        <span class="demo-title"><i class="fa-solid fa-flask-vial"></i> Viva &amp; Classroom Demonstration Scenarios:</span>
-      </div>
-      <div class="demo-buttons-flex">
-        <button class="btn-demo" onclick="window.elevatorApp.runScenario('normal-trip')">
-          <i class="fa-solid fa-arrow-trend-up"></i> 1. Normal Ride (F1→F3)
-        </button>
-        <button class="btn-demo" onclick="window.elevatorApp.runScenario('multi-request')">
-          <i class="fa-solid fa-layer-group highlight-cyan"></i> 2. Multi-Requests (F4 + F2↓ + F3↑ + F1↑)
-        </button>
-        <button class="btn-demo" onclick="window.elevatorApp.runScenario('request-during-transit')">
-          <i class="fa-solid fa-bolt highlight-purple"></i> 3. Mid-Transit Request Injection
-        </button>
-        <button class="btn-demo" onclick="window.elevatorApp.runScenario('boundary-top')">
-          <i class="fa-solid fa-shield"></i> 4. Floor 4 + UP (Self-Loop)
-        </button>
-        <button class="btn-demo" onclick="window.elevatorApp.runScenario('boundary-bottom')">
-          <i class="fa-solid fa-shield"></i> 5. Floor 1 + DOWN (Self-Loop)
-        </button>
-        <button class="btn-demo" onclick="window.elevatorApp.runScenario('door-safety')">
-          <i class="fa-solid fa-door-open"></i> 6. Door Safety Interlock
-        </button>
-        <button class="btn-demo demo-emergency" onclick="window.elevatorApp.runScenario('emergency-transit')">
-          <i class="fa-solid fa-triangle-exclamation"></i> 7. Emergency in Transit
-        </button>
-        <button class="btn-demo" onclick="window.elevatorApp.runScenario('emergency-recovery')">
-          <i class="fa-solid fa-life-ring highlight-emerald"></i> 8. Emergency Recovery
-        </button>
-      </div>
     </section>
 
     <!-- ====================================================
@@ -928,60 +889,6 @@
     </div>
 
     <!-- ====================================================
-         FORMAL THEORY REFERENCE SECTION (Standard Mode)
-         ==================================================== -->
-    <section class="card glass-card theory-section standard-section">
-      <div class="card-header">
-        <div class="card-title-group">
-          <i class="fa-solid fa-book-bookmark header-icon"></i>
-          <div>
-            <h3 class="card-title">Formal Automata Theory &amp; Mathematical Proof</h3>
-            <span class="card-subtitle">Formal definition of 5-tuple M = (Q, Σ, δ, q0, F) and Viva Reference</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="card-body theory-body">
-        <div class="theory-grid">
-          <div class="theory-card">
-            <h4><i class="fa-solid fa-cube"></i> Formal 5-Tuple Definition</h4>
-            <p class="font-mono formula-block">
-              M = (Q, &Sigma;, &delta;, q<sub>0</sub>, F)
-            </p>
-            <ul class="theory-list">
-              <li><strong>Q</strong> = Finite set of all composite configurations (Floor &times; Door &times; Direction &times; Requests &times; Mode). Total reachable states: &gt;1,500 finite configurations.</li>
-              <li><strong>&Sigma;</strong> = { U, D, O, C, T, E, R, REQ_CABIN_1..4, REQ_HALL_1..3_UP, REQ_HALL_2..4_DOWN } (17 discrete input symbols).</li>
-              <li><strong>q<sub>0</sub></strong> = (Floor 1, CLOSED, IDLE, &empty;, NORMAL) — Initial Ground Configuration.</li>
-              <li><strong>F</strong> = All safe operational states where Mode = NORMAL.</li>
-              <li><strong>&delta;</strong>: Q &times; &Sigma; &rarr; Q — Total, deterministic transition function implementing SCAN collective scheduling.</li>
-            </ul>
-          </div>
-
-          <div class="theory-card">
-            <h4><i class="fa-solid fa-graduation-cap"></i> Viva Explanation: Why is this still a DFA?</h4>
-            <p class="theory-desc">
-              <strong>Formal Proof:</strong> Although the simulator supports realistic multi-request scheduling and simultaneous users, the state space is strictly finite because:
-            </p>
-            <div class="safety-points">
-              <div class="safety-item">
-                <span class="safety-badge">Finite Domains</span>
-                <span>Floors (4) &times; Doors (2) &times; Directions (3) &times; Request Subsets (2<sup>10</sup> = 1024) &times; Modes (2) = Finite bounded set.</span>
-              </div>
-              <div class="safety-item">
-                <span class="safety-badge">Determinism</span>
-                <span>For every state q &isin; Q and every symbol &sigma; &isin; &Sigma;, there exists <em>exactly one</em> next state &delta;(q, &sigma;).</span>
-              </div>
-              <div class="safety-item">
-                <span class="safety-badge">No Deadlocks</span>
-                <span>Boundary inputs (e.g. Floor 4 + UP) and door-open movement attempts execute safe self-loops rather than crashing into dead states.</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ====================================================
          COURSE, GUIDE & TEAM CREDITS FOOTER
          ==================================================== -->
     <footer class="card glass-card project-footer standard-section">
@@ -992,61 +899,63 @@
           </div>
           <h3 class="footer-course-title">Finite Automata and Formal Languages</h3>
           <p class="footer-course-sub"><i class="fa-solid fa-building-columns"></i> Department of Computer Science and Engineering</p>
+          <p class="footer-institute">Rajarambapu Institute of Technology (RIT)</p>
           
-          <!-- Course Instructor & Guide Card -->
+          <!-- Project Guide -->
           <div class="guide-card">
             <div class="guide-avatar"><i class="fa-solid fa-chalkboard-user"></i></div>
             <div class="guide-info">
-              <span class="guide-label">Course Instructor &amp; Project Guide</span>
-              <strong class="guide-name">Professor Mrs. G. G. Shingan</strong>
+              <span class="guide-label">Project Guide</span>
+              <strong class="guide-name">Prof. G. G. Shingan</strong>
             </div>
           </div>
 
-          <p class="footer-course-desc">
-            Deterministic Finite Automaton (DFA) collective elevator control system implementing real-time SCAN scheduling policy and formal 5-tuple verification <span class="font-mono highlight-cyan">M = (Q, &Sigma;, &delta;, q<sub>0</sub>, F)</span>.
-          </p>
         </div>
 
-        <div class="footer-team-col">
-          <h4 class="team-title"><i class="fa-solid fa-users"></i> Project Team Members</h4>
-          <div class="team-members-grid">
-            <div class="team-card">
-              <div class="member-avatar"><i class="fa-solid fa-user-tie"></i></div>
-              <div class="member-info">
-                <span class="member-name">Harshwardhan Patil</span>
-                <span class="member-role">CSE &bull; Team Member</span>
-              </div>
-            </div>
-            <div class="team-card">
-              <div class="member-avatar"><i class="fa-solid fa-user"></i></div>
-              <div class="member-info">
-                <span class="member-name">Aditi Nikam</span>
-                <span class="member-role">CSE &bull; Team Member</span>
-              </div>
-            </div>
-            <div class="team-card">
-              <div class="member-avatar"><i class="fa-solid fa-user"></i></div>
-              <div class="member-info">
-                <span class="member-name">Navami Bhat</span>
-                <span class="member-role">CSE &bull; Team Member</span>
-              </div>
-            </div>
-            <div class="team-card">
-              <div class="member-avatar"><i class="fa-solid fa-user"></i></div>
-              <div class="member-info">
-                <span class="member-name">Ruturaj Lokhande</span>
-                <span class="member-role">CSE &bull; Team Member</span>
-              </div>
-            </div>
-            <div class="team-card">
-              <div class="member-avatar"><i class="fa-solid fa-user"></i></div>
-              <div class="member-info">
-                <span class="member-name">Yogita Patil</span>
-                <span class="member-role">CSE &bull; Team Member</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <div class="footer-team-col"> 
+  <h4 class="team-title">
+    <i class="fa-solid fa-users"></i> Project Team Members
+  </h4>
+
+  <div class="team-members-grid">
+
+    <div class="team-member-card">
+      <div class="member-info">
+        <strong class="member-name">Harshwardhan Patil</strong>
+        <span class="member-prn">PRN 2403088</span>
+      </div>
+    </div>
+
+    <div class="team-member-card">
+      <div class="member-info">
+        <strong class="member-name">Aditi Dattatray Nikam</strong>
+        <span class="member-prn">PRN 2403100</span>
+      </div>
+    </div>
+
+    <div class="team-member-card">
+      <div class="member-info">
+        <strong class="member-name">Navami Bhaskar Bhat</strong>
+        <span class="member-prn">PRN 2403130</span>
+      </div>
+    </div>
+
+    <div class="team-member-card">
+      <div class="member-info">
+        <strong class="member-name">Ruturaj Lokhande</strong>
+        <span class="member-prn">PRN 2403115</span>
+      </div>
+    </div>
+
+    <div class="team-member-card team-member-center">
+      <div class="member-info">
+        <strong class="member-name">Yogita Pralhad Patil</strong>
+        <span class="member-prn">PRN 2403119</span>
+      </div>
+    </div>
+
+  </div>
+</div>
       </div>
       <div class="footer-bottom-line">
         <span>Smart Elevator — Deterministic Finite Automaton (DFA) Simulator</span>
